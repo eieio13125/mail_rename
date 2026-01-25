@@ -19,7 +19,7 @@ export default function DocumentClassifier({
                 isExcluded: page.suggestedClassification?.isExcluded || false,
                 confirmed: false,
                 // 抽出情報（編集可能）
-                date: '',
+                date: page.extractedInfo?.date || '',
                 companyName: page.extractedInfo?.companyName || '',
                 documentType: page.extractedInfo?.documentType || '',
                 personName: page.extractedInfo?.personName || '',

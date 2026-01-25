@@ -115,9 +115,16 @@ function App() {
 
       // 各グループからPDFを生成
       const pdfs = [];
+      const excludedPageNumbers = [];
       let pdfId = 0;
 
       for (const group of groups) {
+        // 除外データの場合、後でまとめて処理するためにページ番号を保存
+        if (group.isExcludedData) {
+          group.pages.forEach(p => excludedPageNumbers.push(p.pageNumber));
+          continue;
+        }
+
         const pageNumbers = group.pages.map(p => p.pageNumber);
         const pdfBytes = await splitPDF(pdfData, pageNumbers);
 
@@ -129,7 +136,22 @@ function App() {
           fileName: fileName,
           data: pdfBytes,
           pageCount: group.pages.length,
-          isExcluded: group.isExcluded,
+          isExcluded: false,
+        });
+      }
+
+      // 除外データがある場合、まとめて1つのPDFにする
+      if (excludedPageNumbers.length > 0) {
+        // ページ順にソート（念のため）
+        excludedPageNumbers.sort((a, b) => a - b);
+        const excludedPdfBytes = await splitPDF(pdfData, excludedPageNumbers);
+
+        pdfs.push({
+          id: pdfId++,
+          fileName: '除外データ.pdf',
+          data: excludedPdfBytes,
+          pageCount: excludedPageNumbers.length,
+          isExcluded: true,
         });
       }
 
