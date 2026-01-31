@@ -55,18 +55,18 @@ export default function FileUploader({ onFilesUploaded }) {
         }
 
         if (!excelFile || !excelData) {
-            setError('Excelファイルを選択してください');
-            return;
+            // Excelがなくても進めるようにする（警告のみ、エラーにはしない）
+            console.warn('Excelファイルが選択されていません。会社名リストは空になります。');
         }
 
-        if (!selectedColumn) {
+        if (excelData && !selectedColumn) {
             setError('会社名のカラムを選択してください');
             return;
         }
 
         onFilesUploaded({
             pdfFile,
-            excelData,
+            excelData: excelData || { columns: [], data: [] }, // データがない場合は空オブジェクトを渡す
             companyColumnName: selectedColumn,
         });
     };
@@ -215,8 +215,8 @@ export default function FileUploader({ onFilesUploaded }) {
             <div className="text-center pt-4">
                 <button
                     onClick={handleUpload}
-                    disabled={!pdfFile || !excelFile}
-                    className="btn-primary text-lg px-12 py-4"
+                    disabled={!pdfFile}
+                    className={`btn-primary text-lg px-12 py-4 ${!pdfFile ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     処理を開始
                 </button>

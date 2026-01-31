@@ -127,6 +127,7 @@ export function groupPagesByClassification(pages) {
                 envelopeInfo: currentEnvelope,
                 documentType: classification.documentType || '[書類名]',
                 personName: classification.personName || '',
+                manualFileName: classification.manualFileName || '', // 追加
                 pages: [page],
             };
         }
@@ -147,6 +148,7 @@ export function groupPagesByClassification(pages) {
                 envelopeInfo: currentEnvelope || { date: '[日付]', companyName: '[会社名]' },
                 documentType: classification.documentType || '[書類名]',
                 personName: classification.personName || '',
+                manualFileName: classification.manualFileName || '', // 追加
                 pages: [page],
             };
         }
@@ -157,6 +159,7 @@ export function groupPagesByClassification(pages) {
                     envelopeInfo: currentEnvelope || { date: '[日付]', companyName: '[会社名]' },
                     documentType: classification.documentType || '[書類名]',
                     personName: classification.personName || '',
+                    manualFileName: classification.manualFileName || '', // 追加
                     pages: [page],
                 };
             } else {
@@ -188,6 +191,15 @@ export function groupPagesByClassification(pages) {
 export function generateFileNameFromGroup(group) {
     if (group.isExcludedData) {
         return '除外データ.pdf';
+    }
+
+    // マニュアル指定があれば最優先
+    if (group.manualFileName) {
+        // 拡張子補完
+        if (!group.manualFileName.toLowerCase().endsWith('.pdf')) {
+            return `${group.manualFileName}.pdf`;
+        }
+        return group.manualFileName;
     }
 
     const { date, companyName } = group.envelopeInfo;

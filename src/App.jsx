@@ -25,7 +25,7 @@ function App() {
 
     try {
       // 顧客リストを抽出
-      const companies = extractCompanyList(excelData, companyColumnName);
+      const companies = excelData ? extractCompanyList(excelData, companyColumnName) : [];
       setCompanyList(companies);
 
       // PDFを処理

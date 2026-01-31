@@ -1,5 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Check, Edit2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Check, Edit2, Plus, AlertTriangle } from 'lucide-react';
+import Fuse from 'fuse.js';
+import defaultDocumentNames from '../data/documentNames.json';
+
+const STORAGE_KEY_DOCS = 'mail_rename_custom_docs';
+const STORAGE_KEY_COMPANIES = 'mail_rename_custom_companies'; // 将来用
 
 export default function DocumentClassifier({
     pages,
@@ -23,6 +28,8 @@ export default function DocumentClassifier({
                 companyName: page.extractedInfo?.companyName || '',
                 documentType: page.extractedInfo?.documentType || '',
                 personName: page.extractedInfo?.personName || '',
+                // リネーム全体の一括指定テキスト
+                manualFileName: '',
             }));
             setClassifications(initialClassifications);
         }
@@ -44,6 +51,64 @@ export default function DocumentClassifier({
     // 抽出情報を更新
     const updateExtractedInfo = (field, value) => {
         updateClassification(field, value);
+    };
+
+    // 書類名候補の管理
+    const [documentCandidates, setDocumentCandidates] = useState([]);
+    const [showDocSuggestions, setShowDocSuggestions] = useState(false);
+    const [showCompanySuggestions, setShowCompanySuggestions] = useState(false);
+
+    // 初期化時に書類名候補を構築
+    useEffect(() => {
+        const storedDocs = localStorage.getItem(STORAGE_KEY_DOCS);
+        const customDocs = storedDocs ? JSON.parse(storedDocs) : [];
+        // 重複排除して結合
+        const merged = Array.from(new Set([...defaultDocumentNames, ...customDocs]));
+        setDocumentCandidates(merged);
+    }, []);
+
+    // Fuseインスタンスの作成（書類名）
+    const docFuse = useMemo(() => {
+        return new Fuse(documentCandidates, {
+            threshold: 0.4, // 曖昧さの許容度
+        });
+    }, [documentCandidates]);
+
+    // Fuseインスタンスの作成（会社名）
+    const companyFuse = useMemo(() => {
+        // 会社リストがある場合のみ作成
+        if (!companyList || companyList.length === 0) return null;
+        return new Fuse(companyList, {
+            threshold: 0.4,
+        });
+    }, [companyList]);
+
+    // 候補に追加（書類名）
+    const addDocumentCandidate = (name) => {
+        if (!name) return;
+        const newCandidates = [...documentCandidates, name];
+        setDocumentCandidates(newCandidates); // 状態更新
+
+        // LocalStorage更新
+        const storedDocs = localStorage.getItem(STORAGE_KEY_DOCS);
+        const customDocs = storedDocs ? JSON.parse(storedDocs) : [];
+        if (!customDocs.includes(name)) {
+            customDocs.push(name);
+            localStorage.setItem(STORAGE_KEY_DOCS, JSON.stringify(customDocs));
+        }
+
+        // 入力値を更新
+        updateExtractedInfo('documentType', name);
+        setShowDocSuggestions(false);
+    };
+
+    // 予測候補の取得 helper
+    const getSuggestions = (fuseInstance, input, allItems) => {
+        if (!input) return [];
+        if (fuseInstance) {
+            return fuseInstance.search(input).map(res => res.item).slice(0, 5); // 上位5件
+        }
+        return [];
     };
 
     // 次のページへ
@@ -208,127 +273,218 @@ export default function DocumentClassifier({
                         </div>
 
                         {/* 抽出情報（編集可能） */}
-                        <div className="mt-4 space-y-2 text-sm flex-shrink-0">
-                            <h4 className="text-white/80 font-medium">抽出情報（候補）:</h4>
-                            <p className="text-xs text-white/50 mb-2">※ダブルクリックで編集できます</p>
+                        <div className="mt-4 space-y-4 flex-shrink-0">
 
-                            <div className="bg-white/5 rounded p-3 space-y-2">
-                                {/* 日付 */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-white/50 w-24">日付 (YYMMDD):</span>
-                                    {editingField === 'date' && isDateCompanyEditable ? (
-                                        <div className="flex-1 flex gap-2">
+                            {/* リネーム直接指定 */}
+                            <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 rounded p-3">
+                                <label className="block text-xs text-indigo-200 mb-1 font-medium">
+                                    ファイル名を直接指定 (最優先):
+                                </label>
+                                <input
+                                    type="text"
+                                    value={currentClassification.manualFileName || ''}
+                                    onChange={(e) => updateClassification('manualFileName', e.target.value)}
+                                    placeholder="例: 260130_株式会社〇〇_書類名"
+                                    className="w-full px-3 py-2 bg-black/20 border border-white/10 rounded text-white text-sm focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 placeholder-white/30"
+                                />
+                                {currentClassification.manualFileName && (
+                                    <p className="text-[10px] text-indigo-300 mt-1 flex items-center gap-1">
+                                        <Check className="w-3 h-3" />
+                                        この名前で出力されます（他の抽出情報は無視されます）
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2 text-sm">
+                                <h4 className="text-white/80 font-medium">抽出情報（候補）:</h4>
+                                <p className="text-xs text-white/50 mb-2">※ダブルクリックで編集できます</p>
+
+                                <div className="bg-white/5 rounded p-3 space-y-2">
+                                    {/* 日付 */}
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-white/50 w-24">日付 (YYMMDD):</span>
+                                        {editingField === 'date' && isDateCompanyEditable ? (
+                                            <div className="flex-1 flex gap-2">
+                                                <input
+                                                    type="date"
+                                                    defaultValue={parseYYMMDDToDate(currentClassification.date)}
+                                                    onChange={(e) => updateExtractedInfo('date', formatDateToYYMMDD(e.target.value))}
+                                                    onBlur={() => setEditingField(null)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && setEditingField(null)}
+                                                    className="flex-1 px-2 py-1 bg-white/10 border border-white/30 rounded text-white text-sm"
+                                                    autoFocus
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-white/5 ${!isDateCompanyEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                onDoubleClick={() => isDateCompanyEditable && setEditingField('date')}
+                                            >
+                                                <span className="text-white/70 font-mono">{displayValues.date || '[日付]'}</span>
+                                                {isDateCompanyEditable && (
+                                                    <Edit2
+                                                        className="w-3 h-3 text-primary-400 opacity-0 group-hover:opacity-100"
+                                                        onClick={() => setEditingField('date')}
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 会社名 */}
+                                    <div className="flex items-center gap-2 relative">
+                                        <span className="text-white/50 w-24">会社名:</span>
+                                        {editingField === 'companyName' && isDateCompanyEditable ? (
+                                            <div className="flex-1 relative">
+                                                <input
+                                                    type="text"
+                                                    value={currentClassification.companyName || ''}
+                                                    onChange={(e) => {
+                                                        updateExtractedInfo('companyName', e.target.value);
+                                                        setShowCompanySuggestions(true);
+                                                    }}
+                                                    onBlur={() => setTimeout(() => setShowCompanySuggestions(false), 200)}
+                                                    onFocus={() => setShowCompanySuggestions(true)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && setEditingField(null)}
+                                                    className="w-full px-2 py-1 bg-white/10 border border-white/30 rounded text-white text-sm"
+                                                    autoFocus
+                                                />
+                                                {/* 会社名予測サジェスト */}
+                                                {showCompanySuggestions && currentClassification.companyName && (
+                                                    <div className="absolute z-50 left-0 top-full mt-1 w-full bg-slate-800 border border-slate-600 rounded shadow-xl max-h-40 overflow-y-auto">
+                                                        {getSuggestions(companyFuse, currentClassification.companyName).map((suggestion, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                className="px-3 py-2 text-white text-sm hover:bg-white/10 cursor-pointer"
+                                                                onClick={() => {
+                                                                    updateExtractedInfo('companyName', suggestion);
+                                                                    setShowCompanySuggestions(false);
+                                                                }}
+                                                            >
+                                                                {suggestion}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-white/5 ${!isDateCompanyEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                onDoubleClick={() => isDateCompanyEditable && setEditingField('companyName')}
+                                            >
+                                                <span className="text-white/70">{displayValues.companyName || '[会社名]'}</span>
+                                                {isDateCompanyEditable && (
+                                                    <Edit2
+                                                        className="w-3 h-3 text-primary-400 opacity-0 group-hover:opacity-100"
+                                                        onClick={() => setEditingField('companyName')}
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 書類名 */}
+                                    <div className="flex items-center gap-2 relative">
+                                        <span className="text-white/50 w-24">書類名:</span>
+                                        {editingField === 'documentType' && isDocPersonEditable ? (
+                                            <div className="flex-1 flex gap-2">
+                                                <div className="relative flex-1">
+                                                    <input
+                                                        type="text"
+                                                        value={currentClassification.documentType || ''}
+                                                        onChange={(e) => {
+                                                            updateExtractedInfo('documentType', e.target.value);
+                                                            setShowDocSuggestions(true);
+                                                        }}
+                                                        onBlur={() => setTimeout(() => setShowDocSuggestions(false), 200)}
+                                                        onFocus={() => setShowDocSuggestions(true)}
+                                                        onKeyDown={(e) => e.key === 'Enter' && setEditingField(null)}
+                                                        className="w-full px-2 py-1 bg-white/10 border border-white/30 rounded text-white text-sm"
+                                                        autoFocus
+                                                    />
+                                                    {/* 書類名予測サジェスト */}
+                                                    {showDocSuggestions && currentClassification.documentType && (
+                                                        <div className="absolute z-50 left-0 top-full mt-1 w-full bg-slate-800 border border-slate-600 rounded shadow-xl max-h-40 overflow-y-auto">
+                                                            {getSuggestions(docFuse, currentClassification.documentType).map((suggestion, idx) => (
+                                                                <div
+                                                                    key={idx}
+                                                                    className="px-3 py-2 text-white text-sm hover:bg-white/10 cursor-pointer"
+                                                                    onClick={() => {
+                                                                        updateExtractedInfo('documentType', suggestion);
+                                                                        setShowDocSuggestions(false);
+                                                                    }}
+                                                                >
+                                                                    {suggestion}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* 候補追加ボタン */}
+                                                {currentClassification.documentType &&
+                                                    !documentCandidates.includes(currentClassification.documentType) && (
+                                                        <button
+                                                            onClick={() => addDocumentCandidate(currentClassification.documentType)}
+                                                            className="p-1.5 bg-green-500/20 text-green-400 rounded hover:bg-green-500/40 transition-colors tooltip-trigger relative group"
+                                                            title="候補に追加"
+                                                        >
+                                                            <Plus className="w-4 h-4" />
+                                                            {/* Tooltip */}
+                                                            <div className="absolute bottom-full right-0 mb-2 w-48 bg-slate-900 border border-white/10 rounded p-2 text-[10px] text-white/70 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+                                                                <div className="flex items-start gap-1 text-amber-400 mb-1">
+                                                                    <AlertTriangle className="w-3 h-3" />
+                                                                    <span>注意</span>
+                                                                </div>
+                                                                個人情報を含む名称は追加しないでください
+                                                            </div>
+                                                        </button>
+                                                    )}
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-white/5 ${!isDocPersonEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                onDoubleClick={() => isDocPersonEditable && setEditingField('documentType')}
+                                            >
+                                                <span className="text-white/70">{displayValues.documentType || '[書類名]'}</span>
+                                                {isDocPersonEditable && (
+                                                    <Edit2
+                                                        className="w-3 h-3 text-primary-400 opacity-0 group-hover:opacity-100"
+                                                        onClick={() => setEditingField('documentType')}
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 被保険者名 */}
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-white/50 w-24">被保険者名:</span>
+                                        {editingField === 'personName' && isDocPersonEditable ? (
                                             <input
-                                                type="date"
-                                                defaultValue={parseYYMMDDToDate(currentClassification.date)}
-                                                onChange={(e) => updateExtractedInfo('date', formatDateToYYMMDD(e.target.value))}
+                                                type="text"
+                                                value={currentClassification.personName || ''}
+                                                onChange={(e) => updateExtractedInfo('personName', e.target.value)}
                                                 onBlur={() => setEditingField(null)}
                                                 onKeyDown={(e) => e.key === 'Enter' && setEditingField(null)}
                                                 className="flex-1 px-2 py-1 bg-white/10 border border-white/30 rounded text-white text-sm"
                                                 autoFocus
                                             />
-                                        </div>
-                                    ) : (
-                                        <div
-                                            className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-white/5 ${!isDateCompanyEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            onDoubleClick={() => isDateCompanyEditable && setEditingField('date')}
-                                        >
-                                            <span className="text-white/70 font-mono">{displayValues.date || '[日付]'}</span>
-                                            {isDateCompanyEditable && (
-                                                <Edit2
-                                                    className="w-3 h-3 text-primary-400 opacity-0 group-hover:opacity-100"
-                                                    onClick={() => setEditingField('date')}
-                                                />
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 会社名 */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-white/50 w-24">会社名:</span>
-                                    {editingField === 'companyName' && isDateCompanyEditable ? (
-                                        <input
-                                            type="text"
-                                            value={currentClassification.companyName || ''}
-                                            onChange={(e) => updateExtractedInfo('companyName', e.target.value)}
-                                            onBlur={() => setEditingField(null)}
-                                            onKeyDown={(e) => e.key === 'Enter' && setEditingField(null)}
-                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/30 rounded text-white text-sm"
-                                            autoFocus
-                                        />
-                                    ) : (
-                                        <div
-                                            className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-white/5 ${!isDateCompanyEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            onDoubleClick={() => isDateCompanyEditable && setEditingField('companyName')}
-                                        >
-                                            <span className="text-white/70">{displayValues.companyName || '[会社名]'}</span>
-                                            {isDateCompanyEditable && (
-                                                <Edit2
-                                                    className="w-3 h-3 text-primary-400 opacity-0 group-hover:opacity-100"
-                                                    onClick={() => setEditingField('companyName')}
-                                                />
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 書類名 */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-white/50 w-24">書類名:</span>
-                                    {editingField === 'documentType' && isDocPersonEditable ? (
-                                        <input
-                                            type="text"
-                                            value={currentClassification.documentType || ''}
-                                            onChange={(e) => updateExtractedInfo('documentType', e.target.value)}
-                                            onBlur={() => setEditingField(null)}
-                                            onKeyDown={(e) => e.key === 'Enter' && setEditingField(null)}
-                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/30 rounded text-white text-sm"
-                                            autoFocus
-                                        />
-                                    ) : (
-                                        <div
-                                            className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-white/5 ${!isDocPersonEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            onDoubleClick={() => isDocPersonEditable && setEditingField('documentType')}
-                                        >
-                                            <span className="text-white/70">{displayValues.documentType || '[書類名]'}</span>
-                                            {isDocPersonEditable && (
-                                                <Edit2
-                                                    className="w-3 h-3 text-primary-400 opacity-0 group-hover:opacity-100"
-                                                    onClick={() => setEditingField('documentType')}
-                                                />
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 被保険者名 */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-white/50 w-24">被保険者名:</span>
-                                    {editingField === 'personName' && isDocPersonEditable ? (
-                                        <input
-                                            type="text"
-                                            value={currentClassification.personName || ''}
-                                            onChange={(e) => updateExtractedInfo('personName', e.target.value)}
-                                            onBlur={() => setEditingField(null)}
-                                            onKeyDown={(e) => e.key === 'Enter' && setEditingField(null)}
-                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/30 rounded text-white text-sm"
-                                            autoFocus
-                                        />
-                                    ) : (
-                                        <div
-                                            className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-white/5 ${!isDocPersonEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            onDoubleClick={() => isDocPersonEditable && setEditingField('personName')}
-                                        >
-                                            <span className="text-white/70">{displayValues.personName || '（なし）'}</span>
-                                            {isDocPersonEditable && (
-                                                <Edit2
-                                                    className="w-3 h-3 text-primary-400 opacity-0 group-hover:opacity-100"
-                                                    onClick={() => setEditingField('personName')}
-                                                />
-                                            )}
-                                        </div>
-                                    )}
+                                        ) : (
+                                            <div
+                                                className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-white/5 ${!isDocPersonEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                onDoubleClick={() => isDocPersonEditable && setEditingField('personName')}
+                                            >
+                                                <span className="text-white/70">{displayValues.personName || '（なし）'}</span>
+                                                {isDocPersonEditable && (
+                                                    <Edit2
+                                                        className="w-3 h-3 text-primary-400 opacity-0 group-hover:opacity-100"
+                                                        onClick={() => setEditingField('personName')}
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -348,8 +504,8 @@ export default function DocumentClassifier({
                                 <button
                                     onClick={() => updateClassification('mode', 'envelope')}
                                     className={`w-full px-4 py-3 rounded-lg font-semibold transition-all text-left ${currentClassification.mode === 'envelope'
-                                            ? 'bg-primary-500 text-white'
-                                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                        ? 'bg-primary-500 text-white'
+                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between">
@@ -364,8 +520,8 @@ export default function DocumentClassifier({
                                 <button
                                     onClick={() => updateClassification('mode', 'document')}
                                     className={`w-full px-4 py-3 rounded-lg font-semibold transition-all text-left ${currentClassification.mode === 'document'
-                                            ? 'bg-accent-500 text-white'
-                                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                        ? 'bg-accent-500 text-white'
+                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between">
@@ -380,8 +536,8 @@ export default function DocumentClassifier({
                                 <button
                                     onClick={() => updateClassification('mode', 'same')}
                                     className={`w-full px-4 py-3 rounded-lg font-semibold transition-all text-left ${currentClassification.mode === 'same'
-                                            ? 'bg-green-500 text-white'
-                                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                        ? 'bg-green-500 text-white'
+                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between">
