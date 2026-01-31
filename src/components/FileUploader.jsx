@@ -165,92 +165,102 @@ export default function FileUploader({ onFilesUploaded }) {
                 </div>
             </div>
 
-            {/* Excelアップロード */}
-            <div className="glass-card p-6 space-y-4">
-                <div className="flex items-center gap-3 mb-4">
-                    <Table className="w-6 h-6 text-purple-600" />
-                    <h2 className="text-xl font-semibold text-slate-800">顧客リスト（Excel）</h2>
-                </div>
+            {/* ExcelとJSONアップロード（横並び） */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Excelアップロード */}
+                <div className="glass-card p-6 space-y-4 h-full">
+                    <div className="flex items-center gap-3 mb-4">
+                        <Table className="w-6 h-6 text-purple-600" />
+                        <h2 className="text-xl font-semibold text-slate-800">顧客リスト（Excel）</h2>
+                        <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">任意</span>
+                    </div>
 
-                <div className="space-y-4">
-                    <label className="btn-secondary cursor-pointer inline-block">
-                        <Table className="w-5 h-5 inline mr-2" />
-                        Excelファイルを選択
-                        <input
-                            type="file"
-                            accept=".xlsx,.xls"
-                            onChange={handleExcelChange}
-                            className="hidden"
-                        />
-                    </label>
+                    <div className="space-y-4">
+                        <label className="btn-secondary cursor-pointer inline-block w-full text-center">
+                            <Table className="w-5 h-5 inline mr-2" />
+                            Excelファイルを選択
+                            <input
+                                type="file"
+                                accept=".xlsx,.xls"
+                                onChange={handleExcelChange}
+                                className="hidden"
+                            />
+                        </label>
 
-                    {excelFile && (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-slate-700">
-                                <CheckCircle className="w-5 h-5 text-green-500" />
-                                <span>{excelFile.name}</span>
-                            </div>
-
-                            {excelData && (
-                                <div className="space-y-2">
-                                    <label className="block text-slate-600 text-sm font-medium">
-                                        会社名のカラムを選択:
-                                    </label>
-                                    <select
-                                        value={selectedColumn}
-                                        onChange={(e) => setSelectedColumn(e.target.value)}
-                                        className="input-field"
-                                    >
-                                        {excelData.columns.map((col, index) => (
-                                            <option key={index} value={col}>
-                                                {col}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <p className="text-slate-500 text-sm">
-                                        {excelData.data.length} 件のデータを読み込みました
-                                    </p>
+                        {excelFile ? (
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 text-slate-700 bg-purple-50 p-2 rounded">
+                                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                    <span className="truncate text-sm font-medium">{excelFile.name}</span>
                                 </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
 
-            {/* 書類名JSONアップロード */}
-            <div className="glass-card p-6 space-y-4">
-                <div className="flex items-center gap-3 mb-4">
-                    <List className="w-6 h-6 text-green-600" />
-                    <h2 className="text-xl font-semibold text-slate-800">書類名リスト（JSON）</h2>
-                    <span className="text-xs text-slate-500">オプション</span>
-                </div>
-
-                <div className="space-y-4">
-                    <p className="text-slate-500 text-sm">
-                        過去にエクスポートした書類名リスト（JSON）をアップロードすると、リネーム候補として使用できます。
-                    </p>
-                    <label className="btn-secondary cursor-pointer inline-block">
-                        <List className="w-5 h-5 inline mr-2" />
-                        JSONファイルを選択
-                        <input
-                            type="file"
-                            accept=".json"
-                            onChange={handleDocumentNamesChange}
-                            className="hidden"
-                        />
-                    </label>
-
-                    {documentNamesFile && (
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-slate-700">
-                                <CheckCircle className="w-5 h-5 text-green-500" />
-                                <span>{documentNamesFile.name}</span>
+                                {excelData && (
+                                    <div className="space-y-2">
+                                        <label className="block text-slate-600 text-sm font-medium">
+                                            会社名のカラムを選択:
+                                        </label>
+                                        <select
+                                            value={selectedColumn}
+                                            onChange={(e) => setSelectedColumn(e.target.value)}
+                                            className="input-field w-full text-sm"
+                                        >
+                                            {excelData.columns.map((col, index) => (
+                                                <option key={index} value={col}>
+                                                    {col}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="text-slate-500 text-xs text-right">
+                                            {excelData.data.length} 件読み込み済み
+                                        </p>
+                                    </div>
+                                )}
                             </div>
-                            <p className="text-slate-500 text-sm">
-                                {documentNamesData?.length || 0} 件の書類名を読み込みました
+                        ) : (
+                            <p className="text-slate-400 text-sm text-center py-4">
+                                アップロードされていません
                             </p>
-                        </div>
-                    )}
+                        )}
+                    </div>
+                </div>
+
+                {/* 書類名JSONアップロード */}
+                <div className="glass-card p-6 space-y-4 h-full">
+                    <div className="flex items-center gap-3 mb-4">
+                        <List className="w-6 h-6 text-green-600" />
+                        <h2 className="text-xl font-semibold text-slate-800">書類名リスト（JSON）</h2>
+                        <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">任意</span>
+                    </div>
+
+                    <div className="space-y-4">
+                        <p className="text-slate-500 text-sm">
+                            過去にエクスポートした書類名リストを再利用できます。
+                        </p>
+                        <label className="btn-secondary cursor-pointer inline-block w-full text-center">
+                            <List className="w-5 h-5 inline mr-2" />
+                            JSONファイルを選択
+                            <input
+                                type="file"
+                                accept=".json"
+                                onChange={handleDocumentNamesChange}
+                                className="hidden"
+                            />
+                        </label>
+
+                        {documentNamesFile ? (
+                            <div className="flex items-center gap-2 text-slate-700 bg-green-50 p-2 rounded">
+                                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                <div className="min-w-0">
+                                    <div className="truncate text-sm font-medium">{documentNamesFile.name}</div>
+                                    <div className="text-xs text-slate-500">{documentNamesData?.length || 0} 件読み込み済み</div>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-slate-400 text-sm text-center py-4">
+                                アップロードされていません
+                            </p>
+                        )}
+                    </div>
                 </div>
             </div>
 

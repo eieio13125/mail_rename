@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Check, Edit2, Plus, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Check, Edit2, Plus, AlertTriangle, ZoomIn, ZoomOut } from 'lucide-react';
 import Fuse from 'fuse.js';
 import defaultDocumentNames from '../data/documentNames.json';
 
@@ -56,7 +56,29 @@ export default function DocumentClassifier({
     // 書類名候補の管理
     const [documentCandidates, setDocumentCandidates] = useState([]);
     const [showDocSuggestions, setShowDocSuggestions] = useState(false);
-    const [showCompanySuggestions, setShowCompanySuggestions] = useState(false);
+    const [showCompanySuggestions, setShowCompanySuggestions] = useState(false); // 会社名サジェスト表示フラグ
+
+    // UI拡張
+    const [zoomLevel, setZoomLevel] = useState(1);
+
+    // サジェスト表示用 (Portal不使用でfixed配置)
+    const companyNameInputRef = useRef(null);
+    const [suggestionPos, setSuggestionPos] = useState({ top: 0, left: 0, width: 0 });
+
+    // サジェスト表示位置更新
+    useEffect(() => {
+        if (showCompanySuggestions && companyNameInputRef.current) {
+            const rect = companyNameInputRef.current.getBoundingClientRect();
+            // fixed配置なのでviewport相対座標そのままを使用
+            setSuggestionPos({
+                top: rect.bottom,
+                left: rect.left,
+                width: rect.width
+            });
+        }
+    }, [showCompanySuggestions, currentPageIndex, zoomLevel]);
+
+
 
     // 初期化時に書類名候補を構築（アップロードされた書類名も含む）
     useEffect(() => {
@@ -174,17 +196,30 @@ export default function DocumentClassifier({
         onClassificationComplete(classifiedPages);
     };
 
+    // 拡大縮小機能
+    const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.25, 3));
+    const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.25, 0.5));
+
     // 直近の有効な値を検索（継承用）
     const getInheritedValue = (field, currentIndex) => {
-        // 現在のページが有効な定義を持つモードなら、その値を使用
-        if (field === 'date' || field === 'companyName') {
-            if (classifications[currentIndex]?.mode === 'envelope') {
+        // 現在のページのモードを確認
+        const currentMode = classifications[currentIndex]?.mode;
+
+        // field毎の継承ルール
+        if (field === 'date') {
+            // dateは envelope と document モードでは継承しない（自前の値）
+            if (currentMode === 'envelope' || currentMode === 'document') {
+                return classifications[currentIndex][field];
+            }
+        } else if (field === 'companyName') {
+            // companyNameは envelope モードでは継承しない
+            if (currentMode === 'envelope') {
                 return classifications[currentIndex][field];
             }
         } else {
             // documentType, personName
-            const mode = classifications[currentIndex]?.mode;
-            if (mode === 'envelope' || mode === 'document') {
+            // envelope, document モードでは継承しない
+            if (currentMode === 'envelope' || currentMode === 'document') {
                 return classifications[currentIndex][field];
             }
         }
@@ -192,7 +227,12 @@ export default function DocumentClassifier({
         // 遡って検索
         for (let i = currentIndex - 1; i >= 0; i--) {
             const mode = classifications[i]?.mode;
-            if (field === 'date' || field === 'companyName') {
+
+            if (field === 'date') {
+                // 日付は envelope または document モードのページから値を取る
+                if (mode === 'envelope' || mode === 'document') return classifications[i][field];
+            } else if (field === 'companyName') {
+                // 会社名は envelope モードのページまで遡る（documentモードは会社名を共有＝継承する側）
                 if (mode === 'envelope') return classifications[i][field];
             } else {
                 if (mode === 'envelope' || mode === 'document') return classifications[i][field];
@@ -229,13 +269,14 @@ export default function DocumentClassifier({
     const progress = ((currentPageIndex + 1) / pages.length) * 100;
 
     // 入力可否判定
-    const isDateCompanyEditable = currentClassification.mode === 'envelope';
+    const isDateEditable = currentClassification.mode === 'envelope' || currentClassification.mode === 'document';
+    const isCompanyEditable = currentClassification.mode === 'envelope';
     const isDocPersonEditable = currentClassification.mode === 'envelope' || currentClassification.mode === 'document';
 
     // 表示用の値（編集不可の場合は継承値を表示）
     const displayValues = {
-        date: isDateCompanyEditable ? currentClassification.date : getInheritedValue('date', currentPageIndex),
-        companyName: isDateCompanyEditable ? currentClassification.companyName : getInheritedValue('companyName', currentPageIndex),
+        date: isDateEditable ? currentClassification.date : getInheritedValue('date', currentPageIndex),
+        companyName: isCompanyEditable ? currentClassification.companyName : getInheritedValue('companyName', currentPageIndex),
         documentType: isDocPersonEditable ? currentClassification.documentType : getInheritedValue('documentType', currentPageIndex),
         personName: isDocPersonEditable ? currentClassification.personName : getInheritedValue('personName', currentPageIndex),
     };
@@ -267,12 +308,73 @@ export default function DocumentClassifier({
                     <div className="flex-[3] glass-card p-6 flex flex-col min-h-0">
                         <h3 className="text-lg font-semibold text-slate-800 mb-4">ページ {currentPage.pageNumber}</h3>
 
-                        <div className="flex-1 bg-slate-100 rounded-lg p-4 border border-slate-200 overflow-auto">
-                            <img
-                                src={currentPage.thumbnail}
-                                alt={`ページ ${currentPage.pageNumber}`}
-                                className="w-full h-auto rounded shadow-lg"
-                            />
+                        <div className="flex-1 bg-slate-100 rounded-lg p-4 border border-slate-200 overflow-auto relative group">
+                            <div className="absolute top-4 right-6 z-10 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={handleZoomIn}
+                                    className="p-2 bg-white rounded shadow text-slate-600 hover:text-blue-600 border border-slate-200"
+                                    title="拡大"
+                                >
+                                    <ZoomIn className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={handleZoomOut}
+                                    className="p-2 bg-white rounded shadow text-slate-600 hover:text-blue-600 border border-slate-200"
+                                    title="縮小"
+                                >
+                                    <ZoomOut className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="w-full h-full flex relative overflow-auto">
+                                <div
+                                    style={{
+                                        width: currentPage.viewport ? currentPage.viewport.width * zoomLevel : 'auto',
+                                        height: currentPage.viewport ? currentPage.viewport.height * zoomLevel : 'auto',
+                                        margin: 'auto',
+                                        position: 'relative',
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    <div style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0 }}>
+                                        <img
+                                            src={currentPage.thumbnail}
+                                            alt={`ページ ${currentPage.pageNumber}`}
+                                            className="max-w-none rounded shadow-lg"
+                                        />
+                                        {/* テキストレイヤー */}
+                                        {currentPage.items && currentPage.viewport && currentPage.items.map((item, idx) => {
+                                            // 簡易的な座標計算 (PDF座標系 -> HTML座標系)
+                                            // item.transform: [scaleX, skewY, skewX, scaleY, x, y]
+                                            // viewport.height から y を引いて上からの位置を計算
+                                            const x = item.transform[4];
+                                            const y = currentPage.viewport.height - item.transform[5] - item.height;
+                                            // スケーリングは親divで行うため、ここでは元の座標を使用
+
+                                            return (
+                                                <span
+                                                    key={idx}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: `${x}px`,
+                                                        top: `${y}px`,
+                                                        fontSize: `${item.height}px`,
+                                                        fontFamily: item.fontName,
+                                                        color: 'transparent',
+                                                        whiteSpace: 'pre',
+                                                        cursor: 'text',
+                                                        userSelect: 'text',
+                                                        lineHeight: 1,
+                                                        pointerEvents: 'auto'
+                                                    }}
+                                                >
+                                                    {item.str}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
 
                         {/* 抽出情報（編集可能） */}
@@ -288,7 +390,8 @@ export default function DocumentClassifier({
                                     value={currentClassification.manualFileName || ''}
                                     onChange={(e) => updateClassification('manualFileName', e.target.value)}
                                     placeholder="例: yymmdd_顧客名_書類名_氏名様"
-                                    className="w-full px-3 py-2 bg-white border border-indigo-200 rounded text-slate-900 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder-slate-400"
+                                    disabled={!isDocPersonEditable} // 同一書類モードの場合は編集不可
+                                    className={`w-full px-3 py-2 bg-white border border-indigo-200 rounded text-slate-900 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder-slate-400 ${!isDocPersonEditable ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}`}
                                 />
                                 {currentClassification.manualFileName && (
                                     <p className="text-[10px] text-indigo-600 mt-1 flex items-center gap-1">
@@ -306,7 +409,7 @@ export default function DocumentClassifier({
                                     {/* 日付 */}
                                     <div className="flex items-center gap-2">
                                         <span className="text-slate-500 w-24">日付 (YYMMDD):</span>
-                                        {editingField === 'date' && isDateCompanyEditable ? (
+                                        {editingField === 'date' && isDateEditable ? (
                                             <div className="flex-1 flex gap-2">
                                                 <input
                                                     type="date"
@@ -320,11 +423,11 @@ export default function DocumentClassifier({
                                             </div>
                                         ) : (
                                             <div
-                                                className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-slate-50 ${!isDateCompanyEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                onDoubleClick={() => isDateCompanyEditable && setEditingField('date')}
+                                                className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-slate-50 ${!isDateEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                onDoubleClick={() => isDateEditable && setEditingField('date')}
                                             >
                                                 <span className="text-slate-700 font-mono">{displayValues.date || '[日付]'}</span>
-                                                {isDateCompanyEditable && (
+                                                {isDateEditable && (
                                                     <Edit2
                                                         className="w-3 h-3 text-blue-500 opacity-0 group-hover:opacity-100"
                                                         onClick={() => setEditingField('date')}
@@ -337,9 +440,10 @@ export default function DocumentClassifier({
                                     {/* 会社名 */}
                                     <div className="flex items-center gap-2 relative z-20">
                                         <span className="text-slate-500 w-24">会社名:</span>
-                                        {editingField === 'companyName' && isDateCompanyEditable ? (
+                                        {editingField === 'companyName' && isCompanyEditable ? (
                                             <div className="flex-1 relative">
                                                 <input
+                                                    ref={companyNameInputRef}
                                                     type="text"
                                                     value={currentClassification.companyName || ''}
                                                     onChange={(e) => {
@@ -352,37 +456,14 @@ export default function DocumentClassifier({
                                                     className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-slate-900 text-sm focus:ring-2 focus:ring-blue-500"
                                                     autoFocus
                                                 />
-                                                {/* 会社名予測サジェスト - 表示位置調整 */}
-                                                {showCompanySuggestions && (
-                                                    <div className="absolute left-0 top-full mt-1 w-full bg-white border border-slate-200 rounded shadow-xl max-h-60 overflow-y-auto z-50">
-                                                        {companyList && companyList.length > 0 ? (
-                                                            getSuggestions(companyFuse, currentClassification.companyName, companyList).map((suggestion, idx) => (
-                                                                <div
-                                                                    key={idx}
-                                                                    className="px-3 py-2 text-slate-700 text-sm hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-0"
-                                                                    onMouseDown={() => {
-                                                                        updateExtractedInfo('companyName', suggestion);
-                                                                        setShowCompanySuggestions(false);
-                                                                    }}
-                                                                >
-                                                                    {suggestion}
-                                                                </div>
-                                                            ))
-                                                        ) : (
-                                                            <div className="px-3 py-2 text-slate-400 text-xs text-center">
-                                                                会社名リストがありません
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
                                         ) : (
                                             <div
-                                                className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-slate-50 ${!isDateCompanyEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                onDoubleClick={() => isDateCompanyEditable && setEditingField('companyName')}
+                                                className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-slate-50 ${!isCompanyEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                onDoubleClick={() => isCompanyEditable && setEditingField('companyName')}
                                             >
                                                 <span className="text-slate-700">{displayValues.companyName || '[会社名]'}</span>
-                                                {isDateCompanyEditable && (
+                                                {isCompanyEditable && (
                                                     <Edit2
                                                         className="w-3 h-3 text-blue-500 opacity-0 group-hover:opacity-100"
                                                         onClick={() => setEditingField('companyName')}
@@ -618,7 +699,7 @@ export default function DocumentClassifier({
                                         <kbd className={`px-2 py-1 rounded text-xs ${currentClassification.mode === 'document' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>2</kbd>
                                     </div>
                                     <p className={`text-xs mt-1 ${currentClassification.mode === 'document' ? 'text-purple-600/70' : 'text-slate-400'}`}>
-                                        前の書類と別のPDFに分割（日付・会社名を共有）
+                                        前の書類と別のPDFに分割（会社名を共有）
                                     </p>
                                 </button>
 
@@ -701,6 +782,36 @@ export default function DocumentClassifier({
                     </div>
                 </div>
             </div>
-        </div>
+            {/* 会社名サジェストレイヤー (Fixed Position) */}
+            {showCompanySuggestions && (
+                <div
+                    className="fixed bg-white border border-slate-200 rounded shadow-xl max-h-60 overflow-y-auto z-[9999]"
+                    style={{
+                        top: `${suggestionPos.top}px`,
+                        left: `${suggestionPos.left}px`,
+                        width: `${suggestionPos.width}px`,
+                    }}
+                >
+                    {companyList && companyList.length > 0 ? (
+                        getSuggestions(companyFuse, currentClassification.companyName, companyList).map((suggestion, idx) => (
+                            <div
+                                key={idx}
+                                className="px-3 py-2 text-slate-700 text-sm hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-0"
+                                onMouseDown={() => {
+                                    updateExtractedInfo('companyName', suggestion);
+                                    setShowCompanySuggestions(false);
+                                }}
+                            >
+                                {suggestion}
+                            </div>
+                        ))
+                    ) : (
+                        <div className="px-3 py-2 text-slate-400 text-xs text-center">
+                            会社名リストがありません
+                        </div>
+                    )}
+                </div>
+            )}
+        </div >
     );
 }

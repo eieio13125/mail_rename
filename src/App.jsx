@@ -191,11 +191,15 @@ function App() {
 
   // トップへ戻る
   const handleBackToTop = () => {
-    cleanupAfterDownload({
-      pages,
-      generatedPDFs,
-      pdfData,
-    });
+    try {
+      cleanupAfterDownload({
+        pages,
+        generatedPDFs,
+        pdfData,
+      });
+    } catch (error) {
+      console.error(' Cleanup error:', error);
+    }
 
     // 状態をリセット
     setStage('upload');
