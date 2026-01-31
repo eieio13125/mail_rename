@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
+import { FileText } from 'lucide-react';
 import FileUploader from './components/FileUploader';
 import ProcessingProgress from './components/ProcessingProgress';
 import DocumentClassifier from './components/DocumentClassifier';
 import ResultPreview from './components/ResultPreview';
+import AddedDocumentList from './components/AddedDocumentList';
 import { processPDF, splitPDF, generateFileName } from './utils/pdfProcessor';
 import { extractCompanyList } from './utils/excelParser';
 import { suggestClassification, extractAndInheritInfo, groupPagesByClassification, generateFileNameFromGroup } from './utils/documentClassifier';
 import { cleanupAfterDownload } from './utils/securityManager';
 
 function App() {
-  const [stage, setStage] = useState('upload'); // upload, processing, classifying, generating, result
+  const [stage, setStage] = useState('upload'); // upload, processing, classifying, generating, result, addedDocs
   const [processingStage, setProcessingStage] = useState('loading');
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -17,15 +19,32 @@ function App() {
   const [companyList, setCompanyList] = useState([]);
   const [generatedPDFs, setGeneratedPDFs] = useState([]);
   const [pdfData, setPdfData] = useState(null);
+  const [uploadedDocumentNames, setUploadedDocumentNames] = useState([]);
 
   // ファイルアップロード処理
-  const handleFilesUploaded = async ({ pdfFile, excelData, companyColumnName }) => {
+  const handleFilesUploaded = async ({ pdfFile, excelData, companyColumnName, documentNamesData }) => {
     setStage('processing');
     setProcessingStage('loading');
 
+    // アップロードされた書類名があれば設定
+    if (documentNamesData && documentNamesData.length > 0) {
+      setUploadedDocumentNames(documentNamesData);
+    }
+
     try {
       // 顧客リストを抽出
-      const companies = extractCompanyList(excelData, companyColumnName);
+      // 修正: Excelデータがない場合に備えて空配列をデフォルトにする（extractCompanyListを呼ばない）
+      let companies = [];
+      if (excelData && (excelData.columns?.length > 0 || excelData.data?.length > 0)) {
+        // excelDataが { columns: [], data: [] } の形式であることを期待しているが、
+        // FileUploader側で空の場合のハンドリングをしているかどうか確認が必要。
+        // FileUploaderからのデータ構造に合わせて修正。
+        // FileUploaderでは excelData: excelData || { columns: [], data: [] } としているので、
+        // columnsやdataが空かどうかをチェックするのが安全。
+        if (excelData.columns && excelData.columns.length > 0) {
+          companies = extractCompanyList(excelData, companyColumnName);
+        }
+      }
       setCompanyList(companies);
 
       // PDFを処理
@@ -170,28 +189,38 @@ function App() {
     }
   };
 
-  // ダウンロード後のクリーンアップ
-  const handleDownloadComplete = () => {
-    cleanupAfterDownload({
-      pages,
-      generatedPDFs,
-      pdfData,
-    });
+  // トップへ戻る
+  const handleBackToTop = () => {
+    try {
+      cleanupAfterDownload({
+        pages,
+        generatedPDFs,
+        pdfData,
+      });
+    } catch (error) {
+      console.error(' Cleanup error:', error);
+    }
 
     // 状態をリセット
-    setTimeout(() => {
-      setStage('upload');
-      setPages([]);
-      setGeneratedPDFs([]);
-      setPdfData(null);
-      setCompanyList([]);
-    }, 1000);
+    setStage('upload');
+    setPages([]);
+    setGeneratedPDFs([]);
+    setPdfData(null);
+    setCompanyList([]);
+    setUploadedDocumentNames([]);
+  };
+
+  // 追加した書類名一覧を表示
+  const handleShowAddedDocs = () => {
+    setStage('addedDocs');
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen">      {/* メインコンテンツ */}
       {stage === 'upload' && (
-        <FileUploader onFilesUploaded={handleFilesUploaded} />
+        <FileUploader
+          onFilesUploaded={handleFilesUploaded}
+        />
       )}
 
       {stage === 'processing' && (
@@ -206,6 +235,7 @@ function App() {
         <DocumentClassifier
           pages={pages}
           companyList={companyList}
+          uploadedDocumentNames={uploadedDocumentNames}
           onClassificationComplete={handleClassificationComplete}
         />
       )}
@@ -221,7 +251,14 @@ function App() {
       {stage === 'result' && (
         <ResultPreview
           generatedPDFs={generatedPDFs}
-          onDownload={handleDownloadComplete}
+          onBackToTop={handleBackToTop}
+          onShowAddedDocs={handleShowAddedDocs}
+        />
+      )}
+
+      {stage === 'addedDocs' && (
+        <AddedDocumentList
+          onBack={() => setStage('result')}
         />
       )}
     </div>
@@ -229,3 +266,4 @@ function App() {
 }
 
 export default App;
+

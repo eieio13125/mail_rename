@@ -127,6 +127,7 @@ export function groupPagesByClassification(pages) {
                 envelopeInfo: currentEnvelope,
                 documentType: classification.documentType || '[書類名]',
                 personName: classification.personName || '',
+                manualFileName: classification.manualFileName || '', // 追加
                 pages: [page],
             };
         }
@@ -143,10 +144,22 @@ export function groupPagesByClassification(pages) {
                 }
             }
 
+            // 新しいエンベロープ情報の作成（会社名は引き継ぐが、日付は現在のページのものを使用）
+            // envelopeInfoは「ファイル名のベースとなる情報」として使われるため、
+            // ここで日付を更新しないとファイル名の日付が変わらない
+            const newEnvelopeInfo = {
+                date: classification.date || '[日付]',
+                companyName: currentEnvelope?.companyName || '[会社名]'
+            };
+
+            // currentEnvelopeも更新しておく（以降の同一書類モードで引き継ぐため）
+            currentEnvelope = newEnvelopeInfo;
+
             currentGroup = {
-                envelopeInfo: currentEnvelope || { date: '[日付]', companyName: '[会社名]' },
+                envelopeInfo: newEnvelopeInfo,
                 documentType: classification.documentType || '[書類名]',
                 personName: classification.personName || '',
+                manualFileName: classification.manualFileName || '',
                 pages: [page],
             };
         }
@@ -157,6 +170,7 @@ export function groupPagesByClassification(pages) {
                     envelopeInfo: currentEnvelope || { date: '[日付]', companyName: '[会社名]' },
                     documentType: classification.documentType || '[書類名]',
                     personName: classification.personName || '',
+                    manualFileName: classification.manualFileName || '', // 追加
                     pages: [page],
                 };
             } else {
@@ -188,6 +202,15 @@ export function groupPagesByClassification(pages) {
 export function generateFileNameFromGroup(group) {
     if (group.isExcludedData) {
         return '除外データ.pdf';
+    }
+
+    // マニュアル指定があれば最優先
+    if (group.manualFileName) {
+        // 拡張子補完
+        if (!group.manualFileName.toLowerCase().endsWith('.pdf')) {
+            return `${group.manualFileName}.pdf`;
+        }
+        return group.manualFileName;
     }
 
     const { date, companyName } = group.envelopeInfo;

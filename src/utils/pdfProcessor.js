@@ -170,6 +170,8 @@ export async function processPDF(file, onProgress) {
         processedPages.push({
             pageNumber: i,
             text: text,
+            items: textContent.items, // テキスト位置情報
+            viewport: { width: viewport.width, height: viewport.height }, // ページサイズ情報
             thumbnail: thumbnail
         });
 

@@ -80,8 +80,13 @@ export function cleanupAfterDownload(appState) {
     clearAllStorage();
 
     // ガベージコレクションを促す（ブラウザ依存）
-    if (global.gc) {
-        global.gc();
+    // ガベージコレクションを促す（ブラウザ依存 / テスト環境用）
+    if (typeof global !== 'undefined' && typeof global.gc === 'function') {
+        try {
+            global.gc();
+        } catch (e) {
+            // 無視
+        }
     }
 }
 

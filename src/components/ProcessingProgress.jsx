@@ -14,20 +14,20 @@ export default function ProcessingProgress({ currentPage, totalPages, stage }) {
 
     return (
         <div className="max-w-2xl mx-auto p-8 animate-fade-in">
-            <div className="glass-card p-8 space-y-6">
-                <div className="text-center">
+            <div className="glass-card p-8 space-y-6 text-center">
+                <div>
                     {stage === 'complete' ? (
-                        <FileCheck className="w-16 h-16 mx-auto text-green-400 mb-4" />
+                        <FileCheck className="w-16 h-16 mx-auto text-green-500 mb-4" />
                     ) : (
-                        <Loader2 className="w-16 h-16 mx-auto text-primary-400 animate-spin mb-4" />
+                        <Loader2 className="w-16 h-16 mx-auto text-blue-500 animate-spin mb-4" />
                     )}
 
-                    <h2 className="text-2xl font-bold text-white mb-2">
+                    <h2 className="text-2xl font-bold text-slate-800 mb-2">
                         {stages[stage] || '処理中...'}
                     </h2>
 
                     {totalPages > 0 && (
-                        <p className="text-white/70">
+                        <p className="text-slate-600">
                             {currentPage} / {totalPages} ページ
                         </p>
                     )}
@@ -35,19 +35,19 @@ export default function ProcessingProgress({ currentPage, totalPages, stage }) {
 
                 {/* プログレスバー */}
                 <div className="space-y-2">
-                    <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
+                    <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
                         <div
-                            className="h-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all duration-300 ease-out"
+                            className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300 ease-out"
                             style={{ width: `${progress}%` }}
                         />
                     </div>
-                    <p className="text-center text-white/60 text-sm">
+                    <p className="text-center text-slate-500 text-sm">
                         {progress.toFixed(0)}%
                     </p>
                 </div>
 
                 {stage !== 'complete' && (
-                    <div className="text-center text-white/50 text-sm">
+                    <div className="text-center text-slate-400 text-sm">
                         <p>しばらくお待ちください...</p>
                     </div>
                 )}

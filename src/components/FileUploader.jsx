@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, FileText, Table, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Table, CheckCircle, AlertCircle, List } from 'lucide-react';
 import { parseExcelFile } from '../utils/excelParser';
 
 export default function FileUploader({ onFilesUploaded }) {
@@ -9,6 +9,8 @@ export default function FileUploader({ onFilesUploaded }) {
     const [selectedColumn, setSelectedColumn] = useState('会社名');
     const [dragActive, setDragActive] = useState(false);
     const [error, setError] = useState(null);
+    const [documentNamesFile, setDocumentNamesFile] = useState(null);
+    const [documentNamesData, setDocumentNamesData] = useState(null);
 
     // PDFファイルのドロップハンドラ
     const handlePdfDrop = useCallback((e) => {
@@ -47,6 +49,27 @@ export default function FileUploader({ onFilesUploaded }) {
         }
     };
 
+    // 書類名JSONファイルの処理
+    const handleDocumentNamesChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+
+            if (!Array.isArray(data)) {
+                throw new Error('JSONファイルは配列形式である必要があります');
+            }
+
+            setDocumentNamesFile(file);
+            setDocumentNamesData(data);
+            setError(null);
+        } catch (err) {
+            setError('書類名JSONファイルの読み込みに失敗しました: ' + err.message);
+        }
+    };
+
     // アップロード実行
     const handleUpload = () => {
         if (!pdfFile) {
@@ -55,19 +78,20 @@ export default function FileUploader({ onFilesUploaded }) {
         }
 
         if (!excelFile || !excelData) {
-            setError('Excelファイルを選択してください');
-            return;
+            // Excelがなくても進めるようにする（警告のみ、エラーにはしない）
+            console.warn('Excelファイルが選択されていません。会社名リストは空になります。');
         }
 
-        if (!selectedColumn) {
+        if (excelData && !selectedColumn) {
             setError('会社名のカラムを選択してください');
             return;
         }
 
         onFilesUploaded({
             pdfFile,
-            excelData,
+            excelData: excelData || { columns: [], data: [] }, // データがない場合は空オブジェクトを渡す
             companyColumnName: selectedColumn,
+            documentNamesData: documentNamesData || [], // 書類名JSONデータ
         });
     };
 
@@ -75,10 +99,10 @@ export default function FileUploader({ onFilesUploaded }) {
         <div className="max-w-4xl mx-auto p-8 space-y-6 animate-fade-in">
             {/* ヘッダー */}
             <div className="text-center mb-8">
-                <h1 className="text-4xl font-bold text-gradient mb-3">
+                <h1 className="text-4xl font-bold text-slate-800 mb-3">
                     郵便物自動仕分け・リネームシステム
                 </h1>
-                <p className="text-white/70 text-lg">
+                <p className="text-slate-500 text-lg">
                     スキャンPDFと顧客リストをアップロードしてください
                 </p>
             </div>
@@ -86,14 +110,14 @@ export default function FileUploader({ onFilesUploaded }) {
             {/* PDFアップロード */}
             <div className="glass-card p-6 space-y-4">
                 <div className="flex items-center gap-3 mb-4">
-                    <FileText className="w-6 h-6 text-primary-400" />
-                    <h2 className="text-xl font-semibold text-white">スキャンPDF</h2>
+                    <FileText className="w-6 h-6 text-blue-600" />
+                    <h2 className="text-xl font-semibold text-slate-800">スキャンPDF</h2>
                 </div>
 
                 <div
                     className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${dragActive
-                        ? 'border-primary-400 bg-primary-400/10'
-                        : 'border-white/30 hover:border-white/50'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
                         }`}
                     onDragOver={(e) => {
                         e.preventDefault();
@@ -102,28 +126,28 @@ export default function FileUploader({ onFilesUploaded }) {
                     onDragLeave={() => setDragActive(false)}
                     onDrop={handlePdfDrop}
                 >
-                    <Upload className="w-16 h-16 mx-auto mb-4 text-white/50" />
+                    <Upload className="w-16 h-16 mx-auto mb-4 text-slate-400" />
 
                     {pdfFile ? (
                         <div className="space-y-2">
-                            <CheckCircle className="w-8 h-8 mx-auto text-green-400" />
-                            <p className="text-white font-semibold">{pdfFile.name}</p>
-                            <p className="text-white/60 text-sm">
+                            <CheckCircle className="w-8 h-8 mx-auto text-green-500" />
+                            <p className="text-slate-800 font-semibold">{pdfFile.name}</p>
+                            <p className="text-slate-500 text-sm">
                                 {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
                             </p>
                             <button
                                 onClick={() => setPdfFile(null)}
-                                className="text-primary-400 hover:text-primary-300 text-sm underline"
+                                className="text-blue-600 hover:text-blue-700 text-sm underline"
                             >
                                 変更
                             </button>
                         </div>
                     ) : (
                         <div>
-                            <p className="text-white mb-2">
+                            <p className="text-slate-700 mb-2">
                                 PDFファイルをドラッグ&ドロップ
                             </p>
-                            <p className="text-white/50 text-sm mb-4">または</p>
+                            <p className="text-slate-400 text-sm mb-4">または</p>
                             <label className="btn-secondary cursor-pointer inline-block">
                                 ファイルを選択
                                 <input
@@ -141,70 +165,109 @@ export default function FileUploader({ onFilesUploaded }) {
                 </div>
             </div>
 
-            {/* Excelアップロード */}
-            <div className="glass-card p-6 space-y-4">
-                <div className="flex items-center gap-3 mb-4">
-                    <Table className="w-6 h-6 text-accent-400" />
-                    <h2 className="text-xl font-semibold text-white">顧客リスト（Excel）</h2>
+            {/* ExcelとJSONアップロード（横並び） */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Excelアップロード */}
+                <div className="glass-card p-6 space-y-4 h-full">
+                    <div className="flex items-center gap-3 mb-4">
+                        <Table className="w-6 h-6 text-purple-600" />
+                        <h2 className="text-xl font-semibold text-slate-800">顧客リスト（Excel）</h2>
+                        <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">任意</span>
+                    </div>
+
+                    <div className="space-y-4">
+                        <label className="btn-secondary cursor-pointer inline-block w-full text-center">
+                            <Table className="w-5 h-5 inline mr-2" />
+                            Excelファイルを選択
+                            <input
+                                type="file"
+                                accept=".xlsx,.xls"
+                                onChange={handleExcelChange}
+                                className="hidden"
+                            />
+                        </label>
+
+                        {excelFile ? (
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 text-slate-700 bg-purple-50 p-2 rounded">
+                                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                    <span className="truncate text-sm font-medium">{excelFile.name}</span>
+                                </div>
+
+                                {excelData && (
+                                    <div className="space-y-2">
+                                        <label className="block text-slate-600 text-sm font-medium">
+                                            会社名のカラムを選択:
+                                        </label>
+                                        <select
+                                            value={selectedColumn}
+                                            onChange={(e) => setSelectedColumn(e.target.value)}
+                                            className="input-field w-full text-sm"
+                                        >
+                                            {excelData.columns.map((col, index) => (
+                                                <option key={index} value={col}>
+                                                    {col}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="text-slate-500 text-xs text-right">
+                                            {excelData.data.length} 件読み込み済み
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-slate-400 text-sm text-center py-4">
+                                アップロードされていません
+                            </p>
+                        )}
+                    </div>
                 </div>
 
-                <div className="space-y-4">
-                    <label className="btn-secondary cursor-pointer inline-block">
-                        <Table className="w-5 h-5 inline mr-2" />
-                        Excelファイルを選択
-                        <input
-                            type="file"
-                            accept=".xlsx,.xls"
-                            onChange={handleExcelChange}
-                            className="hidden"
-                        />
-                    </label>
+                {/* 書類名JSONアップロード */}
+                <div className="glass-card p-6 space-y-4 h-full">
+                    <div className="flex items-center gap-3 mb-4">
+                        <List className="w-6 h-6 text-green-600" />
+                        <h2 className="text-xl font-semibold text-slate-800">書類名リスト（JSON）</h2>
+                        <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">任意</span>
+                    </div>
 
-                    {excelFile && (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-white">
-                                <CheckCircle className="w-5 h-5 text-green-400" />
-                                <span>{excelFile.name}</span>
-                            </div>
+                    <div className="space-y-4">
+                        <p className="text-slate-500 text-sm">
+                            過去にエクスポートした書類名リストを再利用できます。
+                        </p>
+                        <label className="btn-secondary cursor-pointer inline-block w-full text-center">
+                            <List className="w-5 h-5 inline mr-2" />
+                            JSONファイルを選択
+                            <input
+                                type="file"
+                                accept=".json"
+                                onChange={handleDocumentNamesChange}
+                                className="hidden"
+                            />
+                        </label>
 
-                            {excelData && (
-                                <div className="space-y-2">
-                                    <label className="block text-white/80 text-sm font-medium">
-                                        会社名のカラムを選択:
-                                    </label>
-                                    <select
-                                        value={selectedColumn}
-                                        onChange={(e) => setSelectedColumn(e.target.value)}
-                                        className="input-field"
-                                        style={{ color: 'white' }}
-                                    >
-                                        {excelData.columns.map((col, index) => (
-                                            <option
-                                                key={index}
-                                                value={col}
-                                                style={{
-                                                    backgroundColor: '#1e293b',
-                                                    color: 'white'
-                                                }}
-                                            >
-                                                {col}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <p className="text-white/60 text-sm">
-                                        {excelData.data.length} 件のデータを読み込みました
-                                    </p>
+                        {documentNamesFile ? (
+                            <div className="flex items-center gap-2 text-slate-700 bg-green-50 p-2 rounded">
+                                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                <div className="min-w-0">
+                                    <div className="truncate text-sm font-medium">{documentNamesFile.name}</div>
+                                    <div className="text-xs text-slate-500">{documentNamesData?.length || 0} 件読み込み済み</div>
                                 </div>
-                            )}
-                        </div>
-                    )}
+                            </div>
+                        ) : (
+                            <p className="text-slate-400 text-sm text-center py-4">
+                                アップロードされていません
+                            </p>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* エラー表示 */}
             {error && (
-                <div className="glass-card p-4 border-red-500/50 bg-red-500/10">
-                    <div className="flex items-center gap-2 text-red-400">
+                <div className="glass-card p-4 border-red-200 bg-red-50">
+                    <div className="flex items-center gap-2 text-red-600">
                         <AlertCircle className="w-5 h-5" />
                         <p>{error}</p>
                     </div>
@@ -215,8 +278,8 @@ export default function FileUploader({ onFilesUploaded }) {
             <div className="text-center pt-4">
                 <button
                     onClick={handleUpload}
-                    disabled={!pdfFile || !excelFile}
-                    className="btn-primary text-lg px-12 py-4"
+                    disabled={!pdfFile}
+                    className={`btn-primary text-lg px-12 py-4 ${!pdfFile ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     処理を開始
                 </button>
