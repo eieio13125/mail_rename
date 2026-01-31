@@ -70,23 +70,3 @@ export function extractCompanyList(excelData, columnName) {
     return [...new Set(companyList)]; // 重複を除去
 }
 
-/**
- * 会社名を正規化（法人格除去、トリム等）
- * @param {string} companyName - 会社名
- * @returns {string} 正規化された会社名
- */
-export function normalizeCompanyName(companyName) {
-    const corporateTypes = [
-        '株式会社', '有限会社', '合同会社', '合資会社', '合名会社',
-        '一般社団法人', '一般財団法人', '医療法人', '社会福祉法人',
-        '(株)', '(有)', '㈱', '㈲'
-    ];
-
-    let normalized = companyName.trim();
-
-    for (const type of corporateTypes) {
-        normalized = normalized.replace(type, '').trim();
-    }
-
-    return normalized;
-}
