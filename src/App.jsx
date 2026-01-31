@@ -35,7 +35,7 @@ function App() {
       // 顧客リストを抽出
       // 修正: Excelデータがない場合に備えて空配列をデフォルトにする（extractCompanyListを呼ばない）
       let companies = [];
-      if (excelData && excelData.length > 0) {
+      if (excelData && (excelData.columns?.length > 0 || excelData.data?.length > 0)) {
         // excelDataが { columns: [], data: [] } の形式であることを期待しているが、
         // FileUploader側で空の場合のハンドリングをしているかどうか確認が必要。
         // FileUploaderからのデータ構造に合わせて修正。

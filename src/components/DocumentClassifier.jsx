@@ -129,11 +129,15 @@ export default function DocumentClassifier({
 
     // 予測候補の取得 helper
     const getSuggestions = (fuseInstance, input, allItems) => {
-        if (!input) return [];
+        // 入力が空の場合は全件（最大100件）を表示
+        if (!input) {
+            return allItems ? allItems.slice(0, 100) : [];
+        }
         if (fuseInstance) {
             return fuseInstance.search(input).map(res => res.item).slice(0, 5); // 上位5件
         }
-        return [];
+        // FuseがないがallItemsがある場合（念のため）
+        return allItems ? allItems.slice(0, 5) : [];
     };
 
     // 次のページへ
