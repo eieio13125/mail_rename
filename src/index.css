@@ -9,9 +9,9 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #0f172a;
+  color-scheme: light;
+  color: #334155;
+  background-color: #f0f9ff;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -22,7 +22,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
 }
 
 * {
@@ -30,30 +30,61 @@ body {
 }
 
 @layer components {
+  /* 青基調のグラスモーフィズム */
   .glass-card {
-    @apply bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl shadow-xl;
+    @apply bg-white/70 backdrop-blur-lg border border-white/50 rounded-xl shadow-xl;
   }
 
+  /* テキストカラー調整（白背景用） */
+  .glass-card h2, .glass-card h3, .glass-card h4 {
+    @apply text-slate-800;
+  }
+  
+  .glass-card p, .glass-card span, .glass-card label {
+    @apply text-slate-600;
+  }
+
+  /* 特殊なテキスト（白文字強制箇所）の上書き対応が必要かもしれないが、
+     コンポーネント側で text-white を指定している箇所が多い。
+     コンポーネント側のクラスも修正する必要があるが、まずはCSS変数的に対応できるか？
+     Tailwindのクラスは上書きできないので、コンポーネントの text-white を remove する必要がある。
+     しかし数が多すぎるので、CSSで text-white クラスの挙動を変えるのは危険。
+     
+     方針：
+     背景が白くなったので、text-white は見えなくなる。
+     コンポーネント側の text-white を text-slate-800 などに置換していく必要がある。
+     
+     とりあえずCSSだけでは不十分だが、まずはベースを定義。
+  */
+
   .btn-primary {
-    @apply px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
+    @apply px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-lg border border-white/20 hover:bg-white/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply px-6 py-3 bg-white text-slate-700 font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
   }
 
   .input-field {
-    @apply w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200;
+    @apply w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200;
   }
 
   .card-hover {
     @apply transition-all duration-300 hover:scale-105 hover:shadow-2xl;
   }
+  
+  /* ダークモード的なUIからライトモード的なUIへの強制転換用ヘルパー */
+  .text-on-light {
+      @apply text-slate-800;
+  }
+  .bg-on-light {
+      @apply bg-white border-slate-200;
+  }
 }
 
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent;
   }
 
   .scrollbar-hide {
