@@ -9,7 +9,8 @@ export default function DocumentClassifier({
     pages,
     onClassificationComplete,
     companyList,
-    uploadedDocumentNames = []
+    uploadedDocumentNames = [],
+    onAddDocumentName = () => { }
 }) {
     const [currentPageIndex, setCurrentPageIndex] = useState(0);
     const [classifications, setClassifications] = useState([]);
@@ -121,6 +122,7 @@ export default function DocumentClassifier({
         if (!customDocs.includes(cleanName)) {
             customDocs.push(cleanName);
             localStorage.setItem(STORAGE_KEY_DOCS, JSON.stringify(customDocs));
+            onAddDocumentName(cleanName); // セッション追加分として通知
         }
 
         // 入力値を更新

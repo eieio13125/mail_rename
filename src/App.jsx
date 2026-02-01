@@ -20,6 +20,7 @@ function App() {
   const [generatedPDFs, setGeneratedPDFs] = useState([]);
   const [pdfData, setPdfData] = useState(null);
   const [uploadedDocumentNames, setUploadedDocumentNames] = useState([]);
+  const [sessionAddedDocumentNames, setSessionAddedDocumentNames] = useState([]);
 
   // ファイルアップロード処理
   const handleFilesUploaded = async ({ pdfFile, excelData, companyColumnName, documentNamesData }) => {
@@ -208,6 +209,7 @@ function App() {
     setPdfData(null);
     setCompanyList([]);
     setUploadedDocumentNames([]);
+    setSessionAddedDocumentNames([]);
   };
 
   // 追加した書類名一覧を表示
@@ -237,6 +239,11 @@ function App() {
           companyList={companyList}
           uploadedDocumentNames={uploadedDocumentNames}
           onClassificationComplete={handleClassificationComplete}
+          onAddDocumentName={(name) => {
+            if (!sessionAddedDocumentNames.includes(name)) {
+              setSessionAddedDocumentNames([...sessionAddedDocumentNames, name]);
+            }
+          }}
         />
       )}
 
@@ -259,6 +266,8 @@ function App() {
       {stage === 'addedDocs' && (
         <AddedDocumentList
           onBack={() => setStage('result')}
+          uploadedDocumentNames={uploadedDocumentNames}
+          sessionAddedDocumentNames={sessionAddedDocumentNames}
         />
       )}
     </div>
