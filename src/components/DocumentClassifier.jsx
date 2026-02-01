@@ -309,10 +309,10 @@ export default function DocumentClassifier({
                 {/* メインコンテンツ: 横並び */}
                 <div className="flex-1 flex gap-4 px-4 pb-4 min-h-0">
                     {/* 左側: プレビュー（60%） */}
-                    <div className="flex-[3] glass-card p-6 flex flex-col min-h-0">
-                        <h3 className="text-lg font-semibold text-slate-800 mb-4">ページ {currentPage.pageNumber}</h3>
+                    <div className="flex-[3] glass-card p-6 flex flex-col min-h-0 min-w-0">
+                        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex-shrink-0">ページ {currentPage.pageNumber}</h3>
 
-                        <div className="flex-1 bg-slate-100 rounded-lg p-4 border border-slate-200 overflow-auto relative group">
+                        <div className="flex-1 bg-slate-100 rounded-lg p-0 border border-slate-200 overflow-hidden relative group min-h-0">
                             <div className="absolute top-4 right-6 z-10 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={handleZoomIn}
@@ -329,7 +329,7 @@ export default function DocumentClassifier({
                                     <ZoomOut className="w-5 h-5" />
                                 </button>
                             </div>
-                            <div className="w-full h-full flex relative overflow-auto">
+                            <div className="w-full h-full flex relative overflow-auto p-4 custom-scrollbar">
                                 <div
                                     style={{
                                         width: currentPage.viewport ? currentPage.viewport.width * zoomLevel : 'auto',
@@ -414,20 +414,20 @@ export default function DocumentClassifier({
                                     <div className="flex items-center gap-2">
                                         <span className="text-slate-500 w-24">日付 (YYMMDD):</span>
                                         {editingField === 'date' && isDateEditable ? (
-                                            <div className="flex-1 flex gap-2">
+                                            <div className="w-32 flex gap-2">
                                                 <input
                                                     type="date"
                                                     defaultValue={parseYYMMDDToDate(currentClassification.date)}
                                                     onChange={(e) => updateExtractedInfo('date', formatDateToYYMMDD(e.target.value))}
                                                     onBlur={() => setEditingField(null)}
                                                     onKeyDown={(e) => e.key === 'Enter' && setEditingField(null)}
-                                                    className="flex-1 px-2 py-1 bg-white border border-slate-300 rounded text-slate-900 text-sm focus:ring-2 focus:ring-blue-500"
+                                                    className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-slate-900 text-sm focus:ring-2 focus:ring-blue-500"
                                                     autoFocus
                                                 />
                                             </div>
                                         ) : (
                                             <div
-                                                className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-slate-50 ${!isDateEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className={`w-32 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-slate-50 ${!isDateEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 onDoubleClick={() => isDateEditable && setEditingField('date')}
                                             >
                                                 <span className="text-slate-700 font-mono">{displayValues.date || '[日付]'}</span>
@@ -665,8 +665,8 @@ export default function DocumentClassifier({
                     </div>
 
                     {/* 右側: 分類設定（40%） */}
-                    <div className="flex-[2] glass-card p-6 flex flex-col min-h-0">
-                        <h3 className="text-lg font-semibold text-slate-800 mb-4">分類設定</h3>
+                    <div className="flex-[2] glass-card p-6 flex flex-col min-h-0 min-w-0">
+                        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex-shrink-0">分類設定</h3>
 
                         <div className="flex-1 space-y-6 overflow-auto">
                             {/* 分類モード選択 */}

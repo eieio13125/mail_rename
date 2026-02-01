@@ -1,19 +1,15 @@
-import React, { useState } from 'react';
-import { Download, FileText, Edit2, Check, X, ArrowLeft, List } from 'lucide-react';
+import React from 'react';
+import { Download, FileText, ArrowLeft, List } from 'lucide-react';
 import JSZip from 'jszip';
-import { generateFileName } from '../utils/pdfProcessor';
 
 export default function ResultPreview({ generatedPDFs, onBackToTop, onShowAddedDocs }) {
-    const [editingIndex, setEditingIndex] = useState(null);
-    const [editedNames, setEditedNames] = useState({});
-
     // ZIP一括ダウンロード
     const handleDownloadAll = async () => {
         try {
             const zip = new JSZip();
 
             generatedPDFs.forEach((pdf) => {
-                const fileName = editedNames[pdf.id] || pdf.fileName;
+                const fileName = pdf.fileName;
                 // pdf.dataがUint8Arrayであることを確認
                 const data = pdf.data instanceof Uint8Array ? pdf.data : new Uint8Array(pdf.data);
                 zip.file(fileName, data, { binary: true });
@@ -41,7 +37,7 @@ export default function ResultPreview({ generatedPDFs, onBackToTop, onShowAddedD
     // 個別ダウンロード
     const handleDownloadSingle = (pdf) => {
         try {
-            const fileName = editedNames[pdf.id] || pdf.fileName;
+            const fileName = pdf.fileName;
             // pdf.dataがUint8Arrayであることを確認
             const data = pdf.data instanceof Uint8Array ? pdf.data : new Uint8Array(pdf.data);
             const blob = new Blob([data], { type: 'application/pdf' });
@@ -57,12 +53,6 @@ export default function ResultPreview({ generatedPDFs, onBackToTop, onShowAddedD
             console.error('PDFダウンロードエラー:', error);
             alert('PDFのダウンロードに失敗しました: ' + error.message);
         }
-    };
-
-    // ファイル名編集
-    const handleEditName = (id, newName) => {
-        setEditedNames({ ...editedNames, [id]: newName });
-        setEditingIndex(null);
     };
 
     const validPDFs = generatedPDFs.filter(pdf => !pdf.isExcluded);
@@ -111,7 +101,7 @@ export default function ResultPreview({ generatedPDFs, onBackToTop, onShowAddedD
                 <h3 className="text-lg font-semibold text-slate-800 mb-4">生成されたPDF</h3>
 
                 <div className="space-y-3">
-                    {validPDFs.map((pdf, index) => (
+                    {validPDFs.map((pdf) => (
                         <div
                             key={pdf.id}
                             className="bg-white rounded-lg p-4 border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
@@ -119,43 +109,11 @@ export default function ResultPreview({ generatedPDFs, onBackToTop, onShowAddedD
                             <div className="flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                     <FileText className="w-5 h-5 text-blue-500 flex-shrink-0" />
-
-                                    {editingIndex === index ? (
-                                        <div className="flex items-center gap-2 flex-1">
-                                            <input
-                                                type="text"
-                                                defaultValue={editedNames[pdf.id] || pdf.fileName}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        handleEditName(pdf.id, e.target.value);
-                                                    } else if (e.key === 'Escape') {
-                                                        setEditingIndex(null);
-                                                    }
-                                                }}
-                                                className="input-field text-sm py-2"
-                                                autoFocus
-                                            />
-                                            <button
-                                                onClick={() => setEditingIndex(null)}
-                                                className="text-slate-400 hover:text-slate-600"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                            <p className="text-slate-800 truncate font-medium">
-                                                {editedNames[pdf.id] || pdf.fileName}
-                                            </p>
-                                            <button
-                                                onClick={() => setEditingIndex(index)}
-                                                className="text-slate-400 hover:text-blue-500 flex-shrink-0 transition-colors"
-                                                title="ファイル名を編集"
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-slate-800 truncate font-medium">
+                                            {pdf.fileName}
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <div className="flex items-center gap-3 flex-shrink-0">
