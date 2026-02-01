@@ -1,4 +1,4 @@
-import { extractCompanyName, extractPersonName, extractDocumentType, isEnvelopeOrCoverLetter } from './pdfProcessor';
+import { extractCompanyName, extractPersonName, extractDocumentType, isEnvelopeOrCoverLetter, sanitizeFileName } from './pdfProcessor';
 
 /**
  * ページの内容から分類を提案
@@ -206,21 +206,22 @@ export function generateFileNameFromGroup(group) {
 
     // マニュアル指定があれば最優先
     if (group.manualFileName) {
+        let name = sanitizeFileName(group.manualFileName);
         // 拡張子補完
-        if (!group.manualFileName.toLowerCase().endsWith('.pdf')) {
-            return `${group.manualFileName}.pdf`;
+        if (!name.toLowerCase().endsWith('.pdf')) {
+            return `${name}.pdf`;
         }
-        return group.manualFileName;
+        return name;
     }
 
     const { date, companyName } = group.envelopeInfo;
     const { documentType, personName } = group;
 
-    // 被保険者名がない場合
-    if (!personName || personName === '（なし）') {
-        return `${date}_${companyName}_${documentType}.pdf`;
-    }
+    const sDate = date || '[日付]';
+    const sCompany = sanitizeFileName(companyName || '会社名未設定');
+    const sDocType = sanitizeFileName(documentType || '書類');
+    const sPerson = (personName && personName !== '（なし）') ? `_${sanitizeFileName(personName)}様` : '';
 
     // 通常の場合
-    return `${date}_${companyName}_${documentType}_${personName}様.pdf`;
+    return `${sDate}_${sCompany}_${sDocType}${sPerson}.pdf`;
 }

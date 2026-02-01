@@ -41,6 +41,11 @@ export default function DocumentClassifier({
 
     // 分類を更新
     const updateClassification = (field, value) => {
+        // 1ページ目のモードは常に 'envelope' (顧問先切替) である必要がある
+        if (currentPageIndex === 0 && field === 'mode' && value !== 'envelope') {
+            return;
+        }
+
         const newClassifications = [...classifications];
         newClassifications[currentPageIndex] = {
             ...newClassifications[currentPageIndex],
@@ -117,12 +122,18 @@ export default function DocumentClassifier({
         setDocumentCandidates(newCandidates); // 状態更新
 
         // LocalStorage更新
-        const storedDocs = localStorage.getItem(STORAGE_KEY_DOCS);
-        const customDocs = storedDocs ? JSON.parse(storedDocs) : [];
-        if (!customDocs.includes(cleanName)) {
-            customDocs.push(cleanName);
-            localStorage.setItem(STORAGE_KEY_DOCS, JSON.stringify(customDocs));
-            onAddDocumentName(cleanName); // セッション追加分として通知
+        try {
+            const storedDocs = localStorage.getItem(STORAGE_KEY_DOCS);
+            const customDocs = storedDocs ? JSON.parse(storedDocs) : [];
+            if (!customDocs.includes(cleanName)) {
+                customDocs.push(cleanName);
+                localStorage.setItem(STORAGE_KEY_DOCS, JSON.stringify(customDocs));
+                onAddDocumentName(cleanName); // セッション追加分として通知
+            }
+        } catch (storageError) {
+            console.error('LocalStorage保存エラー:', storageError);
+            // 保存に失敗しても、そのセッション内での追加分としては通知する
+            onAddDocumentName(cleanName);
         }
 
         // 入力値を更新
@@ -166,7 +177,11 @@ export default function DocumentClassifier({
 
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                goToNextPage();
+                if (currentPageIndex === pages.length - 1) {
+                    handleComplete();
+                } else {
+                    goToNextPage();
+                }
             }
 
             if (e.key === 'Enter' && e.shiftKey) {

@@ -136,28 +136,44 @@ function App() {
       // 各グループからPDFを生成
       const pdfs = [];
       const excludedPageNumbers = [];
+      const fileNameCounts = new Map(); // 重複カウント用
       let pdfId = 0;
 
       for (const group of groups) {
-        // 除外データの場合、後でまとめて処理するためにページ番号を保存
-        if (group.isExcludedData) {
-          group.pages.forEach(p => excludedPageNumbers.push(p.pageNumber));
-          continue;
+        try {
+          // 除外データの場合、後でまとめて処理するためにページ番号を保存
+          if (group.isExcludedData) {
+            group.pages.forEach(p => excludedPageNumbers.push(p.pageNumber));
+            continue;
+          }
+
+          const pageNumbers = group.pages.map(p => p.pageNumber);
+          const pdfBytes = await splitPDF(pdfData, pageNumbers);
+
+          // ベースのファイル名を生成
+          let fileName = generateFileNameFromGroup(group);
+          const baseName = fileName.endsWith('.pdf') ? fileName.slice(0, -4) : fileName;
+
+          // 重複チェックと連番付与
+          if (fileNameCounts.has(baseName)) {
+            const count = fileNameCounts.get(baseName) + 1;
+            fileNameCounts.set(baseName, count);
+            fileName = `${baseName}_${count}.pdf`;
+          } else {
+            fileNameCounts.set(baseName, 1);
+          }
+
+          pdfs.push({
+            id: pdfId++,
+            fileName: fileName,
+            data: pdfBytes,
+            pageCount: group.pages.length,
+            isExcluded: false,
+          });
+        } catch (groupError) {
+          console.error(`グループ生成エラー (${group.documentType}):`, groupError);
+          // 失敗したグループがあっても続行
         }
-
-        const pageNumbers = group.pages.map(p => p.pageNumber);
-        const pdfBytes = await splitPDF(pdfData, pageNumbers);
-
-        // ファイル名を生成
-        const fileName = generateFileNameFromGroup(group);
-
-        pdfs.push({
-          id: pdfId++,
-          fileName: fileName,
-          data: pdfBytes,
-          pageCount: group.pages.length,
-          isExcluded: false,
-        });
       }
 
       // 除外データがある場合、まとめて1つのPDFにする

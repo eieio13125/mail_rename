@@ -126,16 +126,22 @@ export async function splitPDF(pdfData, pageNumbers) {
 }
 
 /**
- * ファイル名を生成
- * @param {Object} info - ファイル名に必要な情報
- * @returns {string} 生成されたファイル名
+ * OSで禁止されている文字をサニタイズ
+ * @param {string} name - サニタイズ対象の文字列
+ * @returns {string} サニタイズ後の文字列
  */
+export function sanitizeFileName(name) {
+    if (!name) return '';
+    // Windowsの禁止文字: \ / : * ? " < > | および制御文字を取り除く
+    return name.replace(/[\\/:*?"<>|]/g, '_').replace(/[\x00-\x1f\x7f]/g, '');
+}
+
 export function generateFileName(info) {
     // YYYYMMDD形式に変換
     const date = info.date || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const company = info.companyName || '会社名未設定';
-    const type = info.documentType || '書類';
-    const person = info.personName ? `_${info.personName}` : '';
+    const company = sanitizeFileName(info.companyName || '会社名未設定');
+    const type = sanitizeFileName(info.documentType || '書類');
+    const person = info.personName ? `_${sanitizeFileName(info.personName)}` : '';
 
     return `${date}_${company}_${type}${person}.pdf`;
 }
