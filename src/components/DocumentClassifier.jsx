@@ -414,20 +414,20 @@ export default function DocumentClassifier({
                                     <div className="flex items-center gap-2">
                                         <span className="text-slate-500 w-24">日付 (YYMMDD):</span>
                                         {editingField === 'date' && isDateEditable ? (
-                                            <div className="flex-1 flex gap-2">
+                                            <div className="w-32 flex gap-2">
                                                 <input
                                                     type="date"
                                                     defaultValue={parseYYMMDDToDate(currentClassification.date)}
                                                     onChange={(e) => updateExtractedInfo('date', formatDateToYYMMDD(e.target.value))}
                                                     onBlur={() => setEditingField(null)}
                                                     onKeyDown={(e) => e.key === 'Enter' && setEditingField(null)}
-                                                    className="flex-1 px-2 py-1 bg-white border border-slate-300 rounded text-slate-900 text-sm focus:ring-2 focus:ring-blue-500"
+                                                    className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-slate-900 text-sm focus:ring-2 focus:ring-blue-500"
                                                     autoFocus
                                                 />
                                             </div>
                                         ) : (
                                             <div
-                                                className={`flex-1 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-slate-50 ${!isDateEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className={`w-32 flex items-center justify-between group cursor-pointer p-1 rounded hover:bg-slate-50 ${!isDateEditable ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 onDoubleClick={() => isDateEditable && setEditingField('date')}
                                             >
                                                 <span className="text-slate-700 font-mono">{displayValues.date || '[日付]'}</span>
